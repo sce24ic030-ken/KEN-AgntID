@@ -37,21 +37,122 @@ can contain KEN, we can contain anything.
 
 ---
 
-## What KEN already is (built before this hackathon)
+## Who KEN is (the full picture)
 
-- ESP32 RC car: 4-motor drive, 360° pan/tilt ESP32-CAM, front/rear ultrasonic,
-  4 IR edge sensors, latched e-stop, command watchdog.
-- Voice brain: wake-word gate → Whisper → LLM tool-use → TTS through a JBL GO.
-  Face/object following, YOLO detection, conversation and personal memory.
-- **Desktop control stack** (the foundation for this event):
-  - screen reading (native OCR on the Windows desktop),
-  - mouse + keyboard tooling,
-  - a trusted-gate for sensitive tools,
-  - always-on tool set framed as MCP tools,
-  - TypeScript server (Express + WebSocket) with auth and per-role access,
-  - 18/18 smoke tests passing.
+KEN isn't a weekend toy — he's an on-going, working project with hardware,
+vision, sensing, voice, memory and personality, all built and tested before
+this hackathon.
 
-So this hackathon is **not** from zero. The unknown is the security layer.
+### Hardware (the body)
+
+| Part | What it is |
+|---|---|
+| ESP32 DevKit | drive controller, 4-motor drivetrain |
+| ESP32-CAM (OV2640) | live JPEG video on a **360° pan/tilt** mount |
+| Sensor node | **ultrasonic** front + rear, **4 IR edge sensors** (one per corner) |
+| JBL GO speaker | voice in/out, paired to the laptop over Bluetooth |
+| Laptop server | Node + TypeScript brain, WebSocket hub, Cloudflare tunnel for remote |
+
+### Driving (the wheels)
+
+- 4-motor differential drive, browser-controlled from keyboard (WASD/arrows) or
+  an on-screen thumbpad.
+- Speed limiter slider — hard-capped at the server, re-clamped at the car.
+- Command watchdog on the car (default 1000 ms, 500 ms on LAN): if commands stop
+  arriving, the wheels stop. Network failure = stopped car.
+- No drive commands at boot; wheels stay still until told to move.
+- E-stop is latched in firmware and only released deliberately.
+- `TEST MODE` — motors simulated for safe bench testing.
+
+### Vision (the eyes)
+
+- Live FPV canvas — raw MJPEG pushed over WebSocket (low-latency, not slides).
+- 360° pan / tilt camera mount, drag-to-aim from the dashboard, camera "peek".
+- YOLO object detection — ~80 common object classes for scene context.
+- Live vision overlay — face and object bounding boxes drawn on the video, with
+  the current follow target highlighted.
+- Optional multimodal vision — a vision LLM describes what the car sees so KEN
+  can talk about his environment.
+
+### Sensing (the instincts)
+
+- Front and rear ultrasonic range; four IR edge sensors with live edge dots.
+- `SENSORS` card on the dashboard: live front/rear cm + 4 edge dots +
+  obstacle/edge tags.
+- Sensor safety gate in the AI: obstacle/edge readings **override** AI drive
+  commands before they are sent — always, no exceptions.
+- Camera/stepper clicks, headlight control (1/0), all driven from software.
+
+### Voice (the ears and mouth)
+
+- Wake-word gated voice loop (default wake word "Ken"). KEN only acts when you
+  start with "Ken…"; calling his name wakes him, then he auto-sleeps after
+  `WAKE_IDLE_TIMEOUT_S` of silence.
+- VAD → Whisper → LLM → TTS through the JBL GO. Barge-in: talking over him stops
+  playback instantly.
+- Type-to-talk — same LLM+TTS pipeline from the dashboard's AI CHAT text box;
+  voice and typing share one conversation.
+- Full live language switch — "speak Hindi" / "Spanish" / "Tamil" mid-talk, KEN
+  hot-swaps reply language and STT. "go back to auto" returns to auto-detect.
+
+### Memory (the mind)
+
+- Conversation memory — chat history persists across restarts.
+- Personal memory per person — new faces are enrolled on the fly
+  ("remember my face as Sarah") and each known face gets their own profile:
+  photo, facts, and the *full* conversation history since you first met. KEN
+  greets you by face and talks to you about what only you two talked about,
+  remembering it from the very first time.
+
+### Autonomous behavior (the will)
+
+- **Autonomous face-follow** — in AUTO mode KEN follows your face; switch
+  targets by name ("follow Sarah"). Always gated by the safety layer.
+- **Object-follow autonomy** — follow a detected object class ("Ken, follow the
+  dog") or steer clear ("Ken, stay away from people"). Priority:
+  **avoid > follow > face-follow**.
+- **Patrol mode** — "start patrol" drives a sensor-guided pattern while
+  narrating; "stop patrol" halts it.
+- **Proactive conversation** — while awake, KEN occasionally speaks up based on
+  what he sees (a face, an object, a nearby obstacle).
+- **Wake on face** — he wakes himself the moment a face appears in frame
+  (`WAKE_ON_FACE`).
+
+### Personality (the character)
+
+- Structured personality output: KEN replies as `{speech, action}` so he not
+  only talks but **acts** — spins, does his happy wiggle-dance, zooms, cheats
+  backward, winks his headlights, or peeks the camera. All gated by the safety
+  layer, always.
+- Voice + personality switching by voice: "use a British voice", "be more
+  sarcastic".
+- LLM tool-use for natural-language control: "back up", "follow Sarah", "turn
+  the lights on", "open the camera" — no fixed regexes.
+- Multi-turn tool refinement: the LLM chains tools (sense → react → report) to
+  build richer behaviours.
+
+### The cockpit (the dashboard)
+
+- Video canvas, virtual thumbpad + keyboard, speed limiter slider.
+- `AUTO` button flips driving authority to the AI; E-stop works in both modes.
+- AI CHAT panel with live transcript, timestamps, awake/asleep pill, typing
+  indicator and quick-command chips.
+- Ping meters (browser↔server, server↔vehicle) and status pills for
+  car / camera / sensor / audio / AI.
+
+### Safety (the rules)
+
+- Configurable command watchdog; sensor gate the AI can't bypass.
+- Driving authority by mode: manual = dashboard, auto = AI. E-stop from anywhere,
+  mid-voice-response included.
+- Estop latched at firmware; no drive commands at boot; remote use only with
+  real secrets (`AUTH_TOKEN` + per-device tokens), WSS only.
+
+### Build status
+
+Server, dashboard, all three firmware projects and the AI service are built;
+smoke suite passes **18/18**; remaining checks need physical hardware on the
+bench.
 
 ---
 
